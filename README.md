@@ -13,6 +13,8 @@ It listens to your voice, "watches" the track conditions via computer vision, an
 
 The system is designed to run on a dedicated **"Brain PC" (Machine B)** while communicating with the **"Gaming Rig" (Machine A)** via a local network.
 
+![System Architecture](assets/architecture.png)
+
 ### The Brain (Machine B)
 * **Core Logic:** Runs the `main.py` reasoning loop.
 * **Ears (Whisper):** Transcribes voice commands in <500ms using CUDA.
