@@ -30,6 +30,9 @@ The system is designed to run on a dedicated **"Brain PC" (Machine B)** while co
 ### 1. Visual Weather Verification
 While F1 telemetry provides "surface wetness" data, it can lag behind visual reality. The **Vision Sender** uses OpenCV to monitor the screen in real-time. This dual-verification system allows the AI to confirm "It looks like rain" visually before the track physics fully update, providing an early strategic advantage.
 
+![Vision Feed](assets/view.jpg)
+*The AI monitors the track feed (above) to detect rain drops or yellow flags.*
+
 ### 2. Solving the "Grey Car" Bug
 Standard F1 telemetry libraries often fail to map driver names correctly. This project implements a manual byte-level decoder for Packet 4 (Participants), targeting specific offsets (Byte 24 + 54) to extract correct Team IDs and Names directly from the binary stream.
 
