@@ -1,0 +1,21 @@
+{
+    "network": {
+        "udp_telemetry_port": 20777,
+        "ears_port": 7777,
+        "voice_target_port": 6666,
+        "vision_port": 5555,
+        "voice_target_ip": "192.168.4.221"
+    },
+    "ai": {
+        "whisper_model": "medium.en",
+        "ollama_model": "llama3.2"
+    },
+    "audio": {
+        "mic_index": 1
+    },
+    "display": {
+        "width": 1600,
+        "height": 900,
+        "fps": 60
+    }
+}

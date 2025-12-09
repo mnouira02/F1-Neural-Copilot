@@ -1,0 +1,6 @@
+pygame>=2.5.0
+ollama>=0.1.0
+faster-whisper>=0.10.0
+pydub>=0.25.1
+numpy>=1.24.0
+requests
