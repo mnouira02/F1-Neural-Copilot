@@ -30,6 +30,7 @@ with open(CONFIG_PATH, "r") as f:
 # --- APPLY CONFIGURATION ---
 UDP_PORT = CONFIG["network"]["udp_telemetry_port"]
 EARS_PORT = CONFIG["network"]["ears_port"]
+VISION_PORT = CONFIG["network"]["vision_port"]  # <--- NEW
 DEFAULT_RES = (CONFIG["display"]["width"], CONFIG["display"]["height"])
 FPS = CONFIG["display"]["fps"]
 WHISPER_MODEL_NAME = CONFIG["ai"]["whisper_model"]
@@ -61,6 +62,7 @@ class SharedState:
             "pos": "P--"
         }
         self.packet_health = {0:0, 2:0, 4:0, 6:0} 
+        self.vision_data = None # <--- NEW: Store latest image frame
 
 state = SharedState()
 
@@ -89,6 +91,51 @@ class SmartTrackMap:
         sx = draw_rect.x + pad_w + (nx * (draw_rect.width - (pad_w*2)))
         sy = draw_rect.y + draw_rect.height - pad_h - (nz * (draw_rect.height - (pad_h*2)))
         return int(sx), int(sy)
+
+# --- NEW: VISION RECEIVER THREAD ---
+class VisionReceiver(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.daemon = True
+
+    def run(self):
+        print(f"👁️ VISION: Listening on TCP {VISION_PORT}...")
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("0.0.0.0", VISION_PORT))
+            s.listen(1)
+            
+            while True:
+                conn, addr = s.accept()
+                print(f"👁️ VISION: Connected to Eyes at {addr}")
+                
+                while True:
+                    try:
+                        # 1. Read Header (4 bytes = Image Size)
+                        header = conn.recv(4)
+                        if not header: break
+                        size = struct.unpack(">L", header)[0]
+
+                        # 2. Read Image Data
+                        data = b""
+                        while len(data) < size:
+                            chunk = conn.recv(4096)
+                            if not chunk: break
+                            data += chunk
+                        
+                        # 3. Store for AI
+                        if len(data) == size:
+                            state.vision_data = data # Store raw JPEG bytes
+                            
+                    except Exception as e:
+                        print(f"❌ Vision Stream Error: {e}")
+                        break
+                conn.close()
+                print("👁️ VISION: Connection Lost. Waiting...")
+
+        except Exception as e:
+            print(f"❌ Vision Server Failed to Start: {e}")
 
 # --- AI ENGINEER THREAD ---
 class RaceEngineer(threading.Thread):
@@ -139,23 +186,25 @@ class RaceEngineer(threading.Thread):
                     segs, _ = self.ears.transcribe(wav_path, beam_size=5, language="en")
                     text = " ".join([x.text for x in segs]).strip()
                     
-                    # Simple empty check only - NO BAD WORD FILTERING
-                    if len(text) < 2: 
-                        continue
+                    if len(text) < 2: continue
 
                     print(f"🎤 DRIVER: {text}")
                     
                     # --- LLM QUERY ---
                     t = state.telemetry
                     
-                    if t['gap_ahead'] == 0.0:
-                        gap_a = "Clear Air"
-                    else:
-                        gap_a = f"{t['gap_ahead']:.2f}s"
+                    if t['gap_ahead'] == 0.0: gap_a = "Clear Air"
+                    else: gap_a = f"{t['gap_ahead']:.2f}s"
                     
+                    # --- CHECK VISION DATA ---
+                    vision_context = "No visual data available."
+                    if state.vision_data:
+                         vision_context = "Visual feed is active (Simulating: Track looks dry)."
+
                     prompt = (
                         f"You are a F1 Race Engineer. Driver asked: '{text}'. "
                         f"Telemetry: [Position: {t['pos']}, Gap Ahead: {gap_a}, Gap Behind: {t['gap_behind']:.2f}s, Speed: {t['speed']} KPH]. "
+                        f"Vision: {vision_context}. "
                         f"Instruction: Answer the driver using the telemetry. Be ultra concise. Max 10 words. "
                         f"Do not say 'Copy that'."
                     )
@@ -173,8 +222,13 @@ class RaceEngineer(threading.Thread):
 
 # --- MAIN GUI ---
 def main():
+    # 1. Start Audio Engineer
     eng = RaceEngineer()
     eng.start()
+
+    # 2. Start Vision Receiver (NEW)
+    vis = VisionReceiver()
+    vis.start()
 
     pygame.init()
     screen = pygame.display.set_mode(DEFAULT_RES, pygame.RESIZABLE)
@@ -270,12 +324,10 @@ def main():
 
         except BlockingIOError: pass
 
-        # --- LOGIC (Restored) ---
-        # 1. Sort cars by distance
+        # --- LOGIC ---
         active_cars = {k: v for k, v in state.cars.items() if v.get('dist', 0) > 1}
         sorted_grid = sorted(active_cars.items(), key=lambda x: x[1]['dist'], reverse=True)
         
-        # 2. Find Player Rank
         my_rank = 0
         for rank, (idx, car) in enumerate(sorted_grid):
             if idx == state.player_idx: my_rank = rank; break
@@ -283,7 +335,6 @@ def main():
         state.telemetry['pos'] = f"P{my_rank+1}"
         spd_ms = max(10.0, state.telemetry['speed'] / 3.6)
         
-        # 3. Calculate Gaps
         if my_rank > 0:
             ahead_idx = sorted_grid[my_rank-1][0]
             delta = state.cars[ahead_idx]['dist'] - state.cars[state.player_idx]['dist']
@@ -299,13 +350,15 @@ def main():
         # RENDER
         screen.fill(BLACK)
 
-        # HEADER
         col = GREEN if state.active else RED
         pygame.draw.rect(screen, col, btn_eng, border_radius=8)
         eng_txt = F_MED.render(f"COPILOT: {'ON' if state.active else 'OFF'}", True, BLACK)
         screen.blit(eng_txt, (btn_eng.centerx - eng_txt.get_width()//2, btn_eng.centery - eng_txt.get_height()//2))
 
-        # Time
+        # Show Vision Status on Screen
+        vis_col = GREEN if state.vision_data else RED
+        pygame.draw.circle(screen, vis_col, (W - 30, H - 30), 10)
+        
         sec = state.telemetry['lap_time'] / 1000.0
         m, s = int(sec // 60), sec % 60
         t_str = f"LAP: {m}:{s:05.2f}"
@@ -328,7 +381,6 @@ def main():
             
             gap_txt = "Leader" if rank == 1 else ""
             if rank > 1:
-                # Safety check for index bounds
                 if rank-2 >= 0 and rank-2 < len(sorted_grid):
                     d_delta = sorted_grid[rank-2][1]['dist'] - car['dist']
                     t_gap = d_delta / spd_ms

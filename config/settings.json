@@ -1,7 +1,7 @@
 {
     "network": {
-        "target_brain_ip": "192.168.4.222",
-        "target_rig_ip": "192.168.4.221",
+        "target_brain_ip": "192.168.4.221",
+        "target_rig_ip": "192.168.4.222",
         "udp_telemetry_port": 20777,
         "ears_port": 7777,
         "vision_port": 5555,
