@@ -189,6 +189,10 @@ def main():
 
     print(f"✅ DASHBOARD: Listening on UDP {UDP_PORT}")
 
+    # --- SAFETY INIT ---
+    sorted_grid = []
+    spd_ms = 1.0
+
     running = True
     while running:
         # --- DYNAMIC RESIZING ---
@@ -266,6 +270,32 @@ def main():
 
         except BlockingIOError: pass
 
+        # --- LOGIC (Restored) ---
+        # 1. Sort cars by distance
+        active_cars = {k: v for k, v in state.cars.items() if v.get('dist', 0) > 1}
+        sorted_grid = sorted(active_cars.items(), key=lambda x: x[1]['dist'], reverse=True)
+        
+        # 2. Find Player Rank
+        my_rank = 0
+        for rank, (idx, car) in enumerate(sorted_grid):
+            if idx == state.player_idx: my_rank = rank; break
+        
+        state.telemetry['pos'] = f"P{my_rank+1}"
+        spd_ms = max(10.0, state.telemetry['speed'] / 3.6)
+        
+        # 3. Calculate Gaps
+        if my_rank > 0:
+            ahead_idx = sorted_grid[my_rank-1][0]
+            delta = state.cars[ahead_idx]['dist'] - state.cars[state.player_idx]['dist']
+            state.telemetry['gap_ahead'] = delta / spd_ms
+        else: state.telemetry['gap_ahead'] = 0.0
+
+        if my_rank < len(sorted_grid)-1:
+            behind_idx = sorted_grid[my_rank+1][0]
+            delta = state.cars[state.player_idx]['dist'] - state.cars[behind_idx]['dist']
+            state.telemetry['gap_behind'] = delta / spd_ms
+        else: state.telemetry['gap_behind'] = 0.0
+
         # RENDER
         screen.fill(BLACK)
 
@@ -298,9 +328,11 @@ def main():
             
             gap_txt = "Leader" if rank == 1 else ""
             if rank > 1:
-                d_delta = sorted_grid[rank-2][1]['dist'] - car['dist']
-                t_gap = d_delta / spd_ms
-                gap_txt = f"+{t_gap:.2f}s"
+                # Safety check for index bounds
+                if rank-2 >= 0 and rank-2 < len(sorted_grid):
+                    d_delta = sorted_grid[rank-2][1]['dist'] - car['dist']
+                    t_gap = d_delta / spd_ms
+                    gap_txt = f"+{t_gap:.2f}s"
 
             bg_col = (40, 40, 60) if is_player else DARK_BG
             r_rect = pygame.Rect(RECT_GRID.x + 10, y_offset, RECT_GRID.width - 20, row_h - 4)

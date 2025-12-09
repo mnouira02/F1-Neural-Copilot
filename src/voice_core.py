@@ -27,15 +27,15 @@ MODEL_PATH = os.path.join(BASE_DIR, "tools", "piper", "voice_model.onnx")
 FFMPEG_DIR = os.path.join(BASE_DIR, "tools", "ffmpeg")
 
 # Configure Pydub to use local FFmpeg
-if os.name == 'nt': # Only add .exe on Windows
+if os.name == 'nt': 
     AudioSegment.converter = os.path.join(FFMPEG_DIR, "ffmpeg.exe")
     AudioSegment.ffmpeg = os.path.join(FFMPEG_DIR, "ffmpeg.exe")
     AudioSegment.ffprobe = os.path.join(FFMPEG_DIR, "ffprobe.exe")
 
 class RaceEngineerVoice:
     def __init__(self):
-        # Load network settings from global CONFIG
-        self.target_ip = CONFIG["network"]["voice_target_ip"]
+        # Load network settings
+        self.target_ip = CONFIG["network"]["target_rig_ip"] # <--- UPDATED
         self.target_port = CONFIG["network"]["voice_target_port"]
         
         self.speech_queue = queue.Queue()
@@ -59,7 +59,6 @@ class RaceEngineerVoice:
         return mixed.astype(np.int16).tobytes()
 
     def _speech_worker(self):
-        # Validation
         if not os.path.exists(PIPER_EXE):
             print(f"❌ CRITICAL: Piper not found at {PIPER_EXE}")
             return

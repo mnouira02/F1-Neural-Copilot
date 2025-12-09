@@ -1,10 +1,11 @@
 {
     "network": {
+        "target_brain_ip": "192.168.4.222",
+        "target_rig_ip": "192.168.4.221",
         "udp_telemetry_port": 20777,
         "ears_port": 7777,
-        "voice_target_port": 6666,
         "vision_port": 5555,
-        "voice_target_ip": "192.168.4.221"
+        "voice_target_port": 6666
     },
     "ai": {
         "whisper_model": "medium.en",
