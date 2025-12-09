@@ -57,10 +57,12 @@ Edit config/settings.json on both machines to match your network:
 ```json
 {
   "network": {
+    "target_brain_ip": "192.168.1.X",  <-- IP of the Brain PC
+    "target_rig_ip": "192.168.1.Y",    <-- IP of the Gaming Rig
     "udp_telemetry_port": 20777,
     "ears_port": 7777,
     "vision_port": 5555,
-    "voice_target_ip": "192.168.1.X"  <-- IP address of the BRAIN PC
+    "voice_target_port": 6666
   }
 }
 ```
