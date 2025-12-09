@@ -31,6 +31,7 @@ The system is designed to run on a dedicated **"Brain PC" (Machine B)** while co
 While F1 telemetry provides "surface wetness" data, it can lag behind visual reality. The **Vision Sender** uses OpenCV to monitor the screen in real-time. This dual-verification system allows the AI to confirm "It looks like rain" visually before the track physics fully update, providing an early strategic advantage.
 
 ![Vision Feed](assets/view.jpg)
+
 *The AI monitors the track feed (above) to detect rain drops or yellow flags.*
 
 ### 2. Solving the "Grey Car" Bug
